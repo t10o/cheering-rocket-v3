@@ -13,3 +13,12 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# google-services.json はプライベートリポジトリなら含めてOK
+# 公開リポジトリの場合は以下のコメントを外す
+# app/google-services.json
