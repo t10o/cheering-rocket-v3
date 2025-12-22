@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "716621355866",
+    "project_id": "cheering-rocket-v3",
+    "storage_bucket": "cheering-rocket-v3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:716621355866:android:46843ac2b135873d47f163",
+        "android_client_info": {
+          "package_name": "one.t10o.cheering_rocket"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCL6wGobhYnvUCaGHpb-7Up-WYoSl7SJ6I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
