@@ -1,5 +1,7 @@
 package one.t10o.cheering_rocket.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Event
@@ -10,15 +12,23 @@ import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -28,6 +38,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import one.t10o.cheering_rocket.ui.screen.auth.AuthViewModel
 import one.t10o.cheering_rocket.ui.screen.auth.LoginScreen
 import one.t10o.cheering_rocket.ui.screen.auth.ProfileSetupScreen
 import one.t10o.cheering_rocket.ui.screen.event.EventCreateScreen
@@ -103,6 +114,39 @@ fun AppNavigation() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     
+    // 認証状態を確認
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
+    var isCheckingProfile by remember { mutableStateOf(true) }
+    var isProfileCompleted by remember { mutableStateOf(false) }
+    var startDestination by remember { mutableStateOf<String?>(null) }
+    
+    // 初期化時に認証状態とプロフィール完了状態を確認
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            isProfileCompleted = authViewModel.isProfileCompleted()
+            startDestination = if (isProfileCompleted) {
+                Screen.Home.route
+            } else {
+                Screen.ProfileSetup.route
+            }
+        } else {
+            startDestination = Screen.Login.route
+        }
+        isCheckingProfile = false
+    }
+    
+    // 初期化中はローディング表示
+    if (isCheckingProfile || startDestination == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    
     Scaffold(
         bottomBar = {
             if (shouldShowBottomBar(currentRoute)) {
@@ -112,7 +156,7 @@ fun AppNavigation() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Login.route, // TODO: 認証状態に応じて変更
+            startDestination = startDestination!!,
             modifier = Modifier.padding(innerPadding)
         ) {
             // 認証フロー
@@ -182,6 +226,7 @@ fun AppNavigation() {
                         navController.navigate(Screen.ProfileEdit.route)
                     },
                     onLogout = {
+                        authViewModel.signOut()
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
@@ -332,4 +377,3 @@ private fun BottomNavigationBar(navController: NavHostController) {
         }
     }
 }
-

@@ -12,7 +12,20 @@
           "package_name": "one.t10o.cheering_rocket"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "716621355866-gitl6su7dl6sm3leuu5mvb714o4csv9q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "one.t10o.cheering_rocket",
+            "certificate_hash": "6f42235f41239b9b563db0e75cf2e3095475d1fc"
+          }
+        },
+        {
+          "client_id": "716621355866-l0paj7a81cck752s8t7k88qai7rmoquh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCL6wGobhYnvUCaGHpb-7Up-WYoSl7SJ6I"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "716621355866-l0paj7a81cck752s8t7k88qai7rmoquh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

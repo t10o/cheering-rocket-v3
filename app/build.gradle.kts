@@ -108,6 +108,9 @@ dependencies {
     // Material (XML用、一部コンポーネントで使用)
     implementation(libs.material)
 
+    // Image Loading (Coil)
+    implementation(libs.coil.compose)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

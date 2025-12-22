@@ -40,6 +40,9 @@ firebaseBom = "33.7.0"
 # Material (XML用、Compose以外で使う場合)
 material = "1.12.0"
 
+# Image Loading
+coil = "2.7.0"
+
 # Testing
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -102,6 +105,9 @@ firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messa
 
 # Material (XML用)
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+
+# Image Loading (Coil)
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
