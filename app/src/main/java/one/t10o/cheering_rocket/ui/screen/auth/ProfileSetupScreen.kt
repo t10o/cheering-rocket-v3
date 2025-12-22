@@ -39,6 +39,7 @@ import coil.compose.AsyncImage
 @Composable
 fun ProfileSetupScreen(
     onSetupComplete: () -> Unit,
+    onLogout: () -> Unit = {},
     viewModel: ProfileSetupViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -136,6 +137,15 @@ fun ProfileSetupScreen(
                         enabled = userName.isNotBlank()
                     ) {
                         Text("設定を完了")
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    TextButton(onClick = onLogout) {
+                        Text(
+                            text = "別のアカウントでログイン",
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }

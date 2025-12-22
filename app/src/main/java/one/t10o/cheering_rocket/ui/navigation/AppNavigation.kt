@@ -124,11 +124,17 @@ fun AppNavigation() {
     // 初期化時に認証状態とプロフィール完了状態を確認
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
-            isProfileCompleted = authViewModel.isProfileCompleted()
-            startDestination = if (isProfileCompleted) {
-                Screen.Home.route
-            } else {
-                Screen.ProfileSetup.route
+            try {
+                isProfileCompleted = authViewModel.isProfileCompleted()
+                startDestination = if (isProfileCompleted) {
+                    Screen.Home.route
+                } else {
+                    Screen.ProfileSetup.route
+                }
+            } catch (e: Exception) {
+                // 認証エラー（アカウント削除等）の場合はログアウト
+                authViewModel.signOut()
+                startDestination = Screen.Login.route
             }
         } else {
             startDestination = Screen.Login.route
@@ -181,6 +187,12 @@ fun AppNavigation() {
                     onSetupComplete = {
                         navController.navigate(Screen.Home.route) {
                             popUpTo(Screen.ProfileSetup.route) { inclusive = true }
+                        }
+                    },
+                    onLogout = {
+                        authViewModel.signOut()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
                         }
                     }
                 )

@@ -100,22 +100,41 @@ class AuthRepository @Inject constructor(
 
     /**
      * プロフィール設定完了を更新
+     * ドキュメントが存在しない場合は作成する
      */
     suspend fun completeProfileSetup(displayName: String, photoUrl: String?): Result<Unit> {
         return try {
-            val uid = firebaseAuth.currentUser?.uid
+            val firebaseUser = firebaseAuth.currentUser
                 ?: return Result.failure(Exception("ユーザーが見つかりません"))
             
-            val updates = hashMapOf<String, Any>(
-                "displayName" to displayName,
-                "profileCompleted" to true
-            )
-            photoUrl?.let { updates["photoUrl"] = it }
+            val uid = firebaseUser.uid
             
-            firestore.collection("users")
-                .document(uid)
-                .update(updates)
-                .await()
+            // ドキュメントが存在するか確認
+            val docRef = firestore.collection("users").document(uid)
+            val doc = docRef.get().await()
+            
+            if (doc.exists()) {
+                // 既存ドキュメントを更新
+                val updates = hashMapOf<String, Any>(
+                    "displayName" to displayName,
+                    "profileCompleted" to true
+                )
+                photoUrl?.let { updates["photoUrl"] = it }
+                docRef.update(updates).await()
+            } else {
+                // ドキュメントが存在しない場合は新規作成
+                val accountId = generateAccountId()
+                val userDoc = hashMapOf(
+                    "uid" to uid,
+                    "email" to firebaseUser.email,
+                    "displayName" to displayName,
+                    "photoUrl" to (photoUrl ?: firebaseUser.photoUrl?.toString()),
+                    "accountId" to accountId,
+                    "createdAt" to com.google.firebase.Timestamp.now(),
+                    "profileCompleted" to true
+                )
+                docRef.set(userDoc).await()
+            }
             
             Result.success(Unit)
         } catch (e: Exception) {
