@@ -1,5 +1,6 @@
 package one.t10o.cheering_rocket.ui.screen.auth
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -8,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import one.t10o.cheering_rocket.data.repository.AuthRepository
+import one.t10o.cheering_rocket.data.repository.StorageRepository
 import javax.inject.Inject
 
 /**
@@ -16,6 +18,7 @@ import javax.inject.Inject
 sealed class ProfileSetupUiState {
     data object Initial : ProfileSetupUiState()
     data object Loading : ProfileSetupUiState()
+    data object UploadingImage : ProfileSetupUiState()
     data object Success : ProfileSetupUiState()
     data class Error(val message: String) : ProfileSetupUiState()
 }
@@ -25,7 +28,8 @@ sealed class ProfileSetupUiState {
  */
 @HiltViewModel
 class ProfileSetupViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val storageRepository: StorageRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ProfileSetupUiState>(ProfileSetupUiState.Initial)
@@ -52,10 +56,23 @@ class ProfileSetupViewModel @Inject constructor(
     }
 
     /**
-     * プロフィール画像URLを更新
+     * プロフィール画像をアップロード
      */
-    fun updatePhotoUrl(url: String?) {
-        _photoUrl.value = url
+    fun uploadProfileImage(imageUri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = ProfileSetupUiState.UploadingImage
+            
+            storageRepository.uploadProfileImage(imageUri)
+                .onSuccess { url ->
+                    _photoUrl.value = url
+                    _uiState.value = ProfileSetupUiState.Initial
+                }
+                .onFailure { exception ->
+                    _uiState.value = ProfileSetupUiState.Error(
+                        exception.message ?: "画像のアップロードに失敗しました"
+                    )
+                }
+        }
     }
 
     /**
@@ -89,4 +106,3 @@ class ProfileSetupViewModel @Inject constructor(
         _uiState.value = ProfileSetupUiState.Initial
     }
 }
-

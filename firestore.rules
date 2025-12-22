@@ -4,13 +4,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ユーザードキュメント
-    // - 認証済みユーザーは自分のドキュメントのみ読み書き可能
-    // - accountIdでの検索は認証済みユーザーなら可能
+    // - 認証済みユーザーは全ユーザーの読み取り可能（フレンド検索、ID重複チェック用）
+    // - 書き込みは自分のドキュメントのみ
     match /users/{userId} {
-      allow read: if request.auth != null && (
-        request.auth.uid == userId || 
-        resource.data.accountId != null
-      );
+      allow read: if request.auth != null;
       allow create, update: if request.auth != null && request.auth.uid == userId;
       allow delete: if false; // 削除は禁止
     }

@@ -75,7 +75,7 @@ class AuthRepository @Inject constructor(
      * Firestoreにユーザードキュメントを作成
      */
     private suspend fun createUserDocument(firebaseUser: FirebaseUser) {
-        val accountId = generateAccountId()
+        val accountId = generateUniqueAccountId()
         val userDoc = hashMapOf(
             "uid" to firebaseUser.uid,
             "email" to firebaseUser.email,
@@ -92,10 +92,39 @@ class AuthRepository @Inject constructor(
     }
 
     /**
-     * 共有用のアカウントIDを生成
+     * 共有用のアカウントIDを生成（一意性を保証）
+     * Firestoreで既存のIDと重複しないことを確認してから返す
      */
-    private fun generateAccountId(): String {
-        return UUID.randomUUID().toString().take(8).uppercase()
+    private suspend fun generateUniqueAccountId(): String {
+        var attempts = 0
+        val maxAttempts = 10
+        
+        while (attempts < maxAttempts) {
+            val candidateId = generateAccountIdCandidate()
+            
+            // Firestoreで重複チェック
+            val existingUsers = firestore.collection("users")
+                .whereEqualTo("accountId", candidateId)
+                .limit(1)
+                .get()
+                .await()
+            
+            if (existingUsers.isEmpty) {
+                return candidateId
+            }
+            
+            attempts++
+        }
+        
+        // 万が一10回試しても重複する場合は、より長いIDを生成
+        return UUID.randomUUID().toString().replace("-", "").take(12).uppercase()
+    }
+    
+    /**
+     * アカウントID候補を生成
+     */
+    private fun generateAccountIdCandidate(): String {
+        return UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
     }
 
     /**
@@ -123,7 +152,7 @@ class AuthRepository @Inject constructor(
                 docRef.update(updates).await()
             } else {
                 // ドキュメントが存在しない場合は新規作成
-                val accountId = generateAccountId()
+                val accountId = generateUniqueAccountId()
                 val userDoc = hashMapOf(
                     "uid" to uid,
                     "email" to firebaseUser.email,

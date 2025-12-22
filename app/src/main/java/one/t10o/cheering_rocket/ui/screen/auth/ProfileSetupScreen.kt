@@ -1,5 +1,10 @@
 package one.t10o.cheering_rocket.ui.screen.auth
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,8 +15,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
@@ -46,6 +54,13 @@ fun ProfileSetupScreen(
     val userName by viewModel.userName.collectAsState()
     val photoUrl by viewModel.photoUrl.collectAsState()
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // 画像ピッカー
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let { viewModel.uploadProfileImage(it) }
+    }
 
     // UI状態の変化を監視
     LaunchedEffect(uiState) {
@@ -89,28 +104,67 @@ fun ProfileSetupScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             // プロフィール画像
-            if (photoUrl != null) {
-                AsyncImage(
-                    model = photoUrl,
-                    contentDescription = "プロフィール画像",
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Text(
-                    text = "👤",
-                    style = MaterialTheme.typography.displayLarge
-                )
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(enabled = uiState !is ProfileSetupUiState.UploadingImage) {
+                        imagePickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    uiState is ProfileSetupUiState.UploadingImage -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                    photoUrl != null -> {
+                        AsyncImage(
+                            model = photoUrl,
+                            contentDescription = "プロフィール画像",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "👤",
+                            style = MaterialTheme.typography.displayMedium
+                        )
+                    }
+                }
+                
+                // カメラアイコン（オーバーレイ）
+                if (uiState !is ProfileSetupUiState.UploadingImage) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "画像を変更",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // TODO: 画像変更機能は後で実装
-            TextButton(onClick = { /* TODO: 画像選択 */ }) {
-                Text("アイコンを変更")
-            }
+            Text(
+                text = "タップして画像を選択",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline
+            )
             
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -121,7 +175,8 @@ fun ProfileSetupScreen(
                 placeholder = { Text("表示名を入力") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = uiState !is ProfileSetupUiState.Loading
+                enabled = uiState !is ProfileSetupUiState.Loading && 
+                         uiState !is ProfileSetupUiState.UploadingImage
             )
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -134,7 +189,8 @@ fun ProfileSetupScreen(
                     Button(
                         onClick = { viewModel.completeSetup() },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = userName.isNotBlank()
+                        enabled = userName.isNotBlank() && 
+                                 uiState !is ProfileSetupUiState.UploadingImage
                     ) {
                         Text("設定を完了")
                     }
