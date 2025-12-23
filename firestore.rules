@@ -25,6 +25,19 @@ service cloud.firestore {
       }
     }
     
+    // イベント招待
+    // 注意: クエリで resource.data を評価できないため、readは認証済みなら許可
+    match /eventInvitations/{invitationId} {
+      allow read: if request.auth != null;
+      // 作成時は自分が招待者であること（なりすまし防止）
+      allow create: if request.auth != null && 
+        request.resource.data.inviterUserId == request.auth.uid;
+      allow update, delete: if request.auth != null && (
+        resource.data.inviterUserId == request.auth.uid ||
+        resource.data.invitedUserId == request.auth.uid
+      );
+    }
+    
     // フレンド関係
     match /friendships/{friendshipId} {
       allow read: if request.auth != null;
