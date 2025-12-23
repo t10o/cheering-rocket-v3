@@ -93,7 +93,10 @@ fun RunScreen(
     ) { permissions ->
         hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
         
-        if (!hasLocationPermission) {
+        if (hasLocationPermission) {
+            // パーミッションが付与されたらラン開始
+            viewModel.onPermissionGranted()
+        } else {
             // パーミッションが拒否された場合は戻る
             onNavigateBack()
         }

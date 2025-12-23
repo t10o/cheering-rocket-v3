@@ -131,10 +131,22 @@ class RunViewModel @Inject constructor(
         }
     }
     
+    private var hasStarted = false
+    
     init {
-        loadOrStartRun()
+        // パーミッションが付与されるまでメッセージと送信待ち件数の監視のみ開始
         observeCheerMessages()
         observePendingCount()
+    }
+    
+    /**
+     * パーミッションが付与された後に呼び出す
+     * ラン開始とサービス起動を行う
+     */
+    fun onPermissionGranted() {
+        if (hasStarted) return
+        hasStarted = true
+        loadOrStartRun()
     }
     
     /**
