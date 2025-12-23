@@ -1,6 +1,7 @@
 package one.t10o.cheering_rocket.di
 
 import android.content.Context
+import androidx.room.Room
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -13,6 +14,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import one.t10o.cheering_rocket.R
+import one.t10o.cheering_rocket.data.local.AppDatabase
+import one.t10o.cheering_rocket.data.local.dao.PendingLocationDao
 import javax.inject.Singleton
 
 /**
@@ -57,6 +60,22 @@ object AppModule {
         gso: GoogleSignInOptions
     ): GoogleSignInClient {
         return GoogleSignIn.getClient(context, gso)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            AppDatabase.DATABASE_NAME
+        ).build()
+    }
+    
+    @Provides
+    @Singleton
+    fun providePendingLocationDao(database: AppDatabase): PendingLocationDao {
+        return database.pendingLocationDao()
     }
 }
 

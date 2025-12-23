@@ -1,4 +1,4 @@
-いbnpackage one.t10o.cheering_rocket.data.model
+package one.t10o.cheering_rocket.data.model
 
 import com.google.firebase.Timestamp
 

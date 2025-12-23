@@ -52,6 +52,7 @@ import one.t10o.cheering_rocket.ui.screen.friend.FriendSearchScreen
 import one.t10o.cheering_rocket.ui.screen.home.HomeScreen
 import one.t10o.cheering_rocket.ui.screen.profile.ProfileEditScreen
 import one.t10o.cheering_rocket.ui.screen.profile.ProfileScreen
+import one.t10o.cheering_rocket.ui.screen.run.PhotoCaptureScreen
 import one.t10o.cheering_rocket.ui.screen.run.RunEndScreen
 import one.t10o.cheering_rocket.ui.screen.run.RunScreen
 
@@ -323,8 +324,14 @@ fun AppNavigation() {
                 val eventId = backStackEntry.arguments?.getString("eventId") ?: return@composable
                 RunScreen(
                     eventId = eventId,
-                    onNavigateToEnd = {
+                    onNavigateToRunEnd = {
                         navController.navigate(Screen.RunEnd.createRoute(eventId))
+                    },
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onTakePhoto = {
+                        navController.navigate(Screen.PhotoCapture.createRoute(eventId))
                     }
                 )
             }
@@ -337,11 +344,24 @@ fun AppNavigation() {
                 RunEndScreen(
                     eventId = eventId,
                     onNavigateBack = { navController.popBackStack() },
-                    onRunEnded = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Run.route) { inclusive = true }
+                    onFinished = {
+                        // イベント詳細に戻る
+                        navController.navigate(Screen.EventDetail.createRoute(eventId)) {
+                            popUpTo(Screen.Run.createRoute(eventId)) { inclusive = true }
                         }
                     }
+                )
+            }
+            
+            composable(
+                route = Screen.PhotoCapture.route,
+                arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val eventId = backStackEntry.arguments?.getString("eventId") ?: return@composable
+                PhotoCaptureScreen(
+                    eventId = eventId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onPhotoUploaded = { navController.popBackStack() }
                 )
             }
             
@@ -389,3 +409,4 @@ private fun BottomNavigationBar(navController: NavHostController) {
         }
     }
 }
+

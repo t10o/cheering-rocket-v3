@@ -38,6 +38,9 @@ sealed class Screen(val route: String) {
     data object RunEnd : Screen("run_end/{eventId}") {
         fun createRoute(eventId: String) = "run_end/$eventId"
     }
+    data object PhotoCapture : Screen("photo_capture/{eventId}") {
+        fun createRoute(eventId: String) = "photo_capture/$eventId"
+    }
     
     // プロフィール編集
     data object ProfileEdit : Screen("profile_edit")
