@@ -580,6 +580,60 @@ class RunRepository @Inject constructor(
     }
     
     /**
+     * 自分の走行中ランを全て取得
+     */
+    suspend fun getMyActiveRuns(): Result<List<RunSession>> {
+        return try {
+            val currentUserId = firebaseAuth.currentUser?.uid
+                ?: return Result.failure(Exception("ログインしていません"))
+            
+            val snapshot = firestore.collection("runs")
+                .whereEqualTo("userId", currentUserId)
+                .whereEqualTo("status", RunStatus.RUNNING.name)
+                .get()
+                .await()
+            
+            val runs = snapshot.documents.mapNotNull { doc ->
+                parseRunSession(doc)
+            }
+            
+            Result.success(runs)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * 自分の走行中ランをリアルタイム監視
+     */
+    fun observeMyActiveRuns(): Flow<List<RunSession>> = callbackFlow {
+        val currentUserId = firebaseAuth.currentUser?.uid
+        if (currentUserId == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        
+        val listener = firestore.collection("runs")
+            .whereEqualTo("userId", currentUserId)
+            .whereEqualTo("status", RunStatus.RUNNING.name)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
+                val runs = snapshot?.documents?.mapNotNull { doc ->
+                    parseRunSession(doc)
+                } ?: emptyList()
+                
+                trySend(runs)
+            }
+        
+        awaitClose { listener.remove() }
+    }
+    
+    /**
      * 現在のユーザーIDを取得
      */
     fun getCurrentUserId(): String? = firebaseAuth.currentUser?.uid

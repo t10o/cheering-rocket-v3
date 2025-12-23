@@ -109,27 +109,17 @@ class HomeViewModel @Inject constructor(
                 }
         }
         
-        // 走行中のランを監視
+        // 走行中のランを監視（独立してリアルタイム監視）
         observeActiveRuns()
     }
     
     private fun observeActiveRuns() {
         viewModelScope.launch {
-            val currentUserId = runRepository.getCurrentUserId() ?: return@launch
-            
-            // 自分の走行中ランを各イベントから取得
-            _uiState.value.upcomingEvents.forEach { eventItem ->
-                runRepository.getCurrentRun(eventItem.event.id)
-                    .onSuccess { run ->
-                        if (run != null && run.status == RunStatus.RUNNING) {
-                            val currentRuns = _uiState.value.activeRuns.toMutableList()
-                            if (currentRuns.none { it.id == run.id }) {
-                                currentRuns.add(run)
-                                _uiState.value = _uiState.value.copy(activeRuns = currentRuns)
-                            }
-                        }
-                    }
-            }
+            runRepository.observeMyActiveRuns()
+                .catch { /* エラーは無視 */ }
+                .collect { runs ->
+                    _uiState.value = _uiState.value.copy(activeRuns = runs)
+                }
         }
     }
     
