@@ -96,17 +96,35 @@ class RunEndViewModel @Inject constructor(
     
     private fun loadCurrentRun() {
         viewModelScope.launch {
-            runRepository.observeRunSession(eventId)
-                .catch { e ->
+            // まず現在のランを取得
+            runRepository.getCurrentRun(eventId)
+                .onSuccess { session ->
+                    if (session != null) {
+                        // runIdでリアルタイム監視
+                        runRepository.observeRun(session.id)
+                            .catch { e ->
+                                _uiState.value = _uiState.value.copy(
+                                    isLoading = false,
+                                    errorMessage = e.message
+                                )
+                            }
+                            .collect { updatedSession ->
+                                _uiState.value = _uiState.value.copy(
+                                    runSession = updatedSession,
+                                    isLoading = false
+                                )
+                            }
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            errorMessage = "走行中のランが見つかりません"
+                        )
+                    }
+                }
+                .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         errorMessage = e.message
-                    )
-                }
-                .collect { session ->
-                    _uiState.value = _uiState.value.copy(
-                        runSession = session,
-                        isLoading = false
                     )
                 }
         }
@@ -138,7 +156,7 @@ class RunEndViewModel @Inject constructor(
             stopLocationService()
             
             // Firestoreのランを終了
-            runRepository.endRun(runId)
+            runRepository.finishRun(runId)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isFinishing = false,
