@@ -249,3 +249,156 @@ Functions（案）
 
 ### 二次ソース（参考）
 - MVVM + Clean（指定記事）: https://qiita.com/void_takazu/items/d75aaf97eadf444bff77
+
+## 11. ウェブ側の要件、仕様等
+## 1. プロダクト概要（応援者 Web）
+マラソン中のランナーを、応援者が「いまどこにいるか」を見ながら応援できる仕組みを提供する。
+
+- 応援者: 共有URLから Webサイトにアクセスし、イベント参加メンバー全員の
+  - 現在地 / ルート（履歴）
+  - 写真
+  を見て、応援メッセージを送れる
+
+URL 形式（確定）:
+- `<domain（未定）>/cheer/<eventId>`
+
+---
+
+## 2. 重要方針（最優先）
+### 2.1 迷わないUI/UX
+- マニュアル無しで使える導線と文言
+- 「今の状態（閲覧中/更新中/接続不安定）」が分かる
+- エラー時の復帰方法が分かる（再読み込み、URL確認など）
+
+### 2.2 “応援”の空気感（デザイン方針）
+- Google のデザインガイドライン（Material）を尊重しつつ、応援らしい溌剌さを出す
+- 情報の優先順位: 現在地 / 最新更新時刻 / メンバー一覧 / メッセージ送信
+- アクセシビリティを犠牲にしない（コントラスト、タップ領域、読みやすさ）
+
+### 2.3 バックエンドは Firebase を最大活用
+- Firestore / Cloud Functions / Cloud Storage を中心に構成
+- 応援メッセージ送信は、必要に応じて Functions 経由で行う（セキュリティ都合）
+
+---
+
+## 3. 既知の要件（Web 視点）
+### 3.1 表示（イベント単位）
+- `/cheer/<eventId>` にアクセスすると、イベント情報と参加メンバーが見える
+- 同一イベントに参加しているメンバー全員の情報を閲覧できる
+  - 現在地（最新ポイント）
+  - ルート（履歴）
+  - 写真（撮影地点が分かると望ましい）
+
+### 3.2 応援メッセージ送信
+- 応援Web からメッセージを送信できる
+- 送信された応援メッセージは、同一イベントで走っている全員に届く（Runner 側でプッシュ通知）
+- Web 側でも「送ったメッセージがイベントに保存された」ことが分かる状態を表示する
+
+### 3.3 リアルタイム更新
+- 位置情報・メッセージ・写真は原則リアルタイムで更新される
+  - Firestore のリアルタイム購読（onSnapshot）を基本にする
+  - ネットワークが不安定でも破綻しない（最新に追いつける、再接続できる）
+
+### 3.4 公開範囲（未確定：重要）
+- 応援Webを「ログイン無し」で見られる形にする
+- セキュリティ/Rules 設計のため、以下のいずれかを採用する（実装時に決定）
+  - eventId とは別の shareToken を発行し、shareToken を知っている人だけ閲覧可
+  - 応援Webは Functions 経由で読み書き（shareToken検証）し、Firestore直アクセスを抑える
+
+---
+
+## 4. 技術選定（採用方針）
+### 4.1 レンダリング方針（SPA / SSR）
+- 初期は SPA を基本とする（リアルタイム更新主体、運用が軽い）
+- ただし、共有URLを貼った時の「リンクプレビュー（OG）」をイベント別に出したくなったら、
+  SSR（Next.js等）または “OG用の動的HTML生成” を導入する（後で選べるようにする）
+
+### 4.2 推奨スタック（初期）
+- React + TypeScript
+- ルーティング（SPA）
+- Firebase SDK（Firestore / Storage）
+- UI: Material Design 方針に沿う（具体ライブラリは実装時に決定）
+- スタイリングには Tailwind を使用する
+- 地図: ルート/現在地を扱えるライブラリ（実装時に決定）
+
+---
+
+## 5. アーキテクチャ方針（Web）
+### 5.1 責務分離（最低限）
+- UI（画面）とデータアクセス（Firestore/Functions）を分離する
+- Firestore の購読ロジックは hooks / service に閉じ込め、画面は state を描画するだけにする
+
+### 5.2 推奨ディレクトリ例（変更OK）
+- src/
+  - app/            # ルーティング・エントリ
+  - features/
+    - cheer/        # 応援ページ（イベント単位）
+  - components/     # 共通UI
+  - services/
+    - firebase/     # firebase init, auth(optional), firestore, storage
+    - api/          # functions 呼び出しなど
+  - hooks/
+  - styles/ or theme/
+
+---
+
+## 6. データアクセス方針（Firestore / Functions）
+### 6.1 リアルタイム購読を基本にする
+- locations / messages / photos は購読で更新
+- “最新だけ必要” なもの（メンバーの latestLocation 等）があるなら、取得コストが破綻しない形に寄せる
+
+### 6.2 書き込みは慎重に
+- 応援メッセージは「スパム/荒らし対策」「権限制御」の観点で Functions 経由を検討する
+- クライアント直書きする場合でも、Rules で権限制御できる前提を崩さない
+
+---
+
+## 7. パフォーマンス方針
+- 初回表示で必要な情報を絞る（まず “イベント概要 + メンバー + 現在地”）
+- ルート（履歴）や写真は段階的にロードしても良い
+- Firestore 購読は必要な範囲だけに絞る（過剰な購読・全件読みを避ける）
+- キャッシュ等を積極的に活用し、Firebase の過金額を最小限に抑えつつ、応援の体験を損なわないようにする
+
+---
+
+## 8. エラーハンドリング/状態表示
+- ローディング中、空状態、権限なし、イベントが存在しない、ネット不安定を UI で明確に区別
+- “復帰手段” を必ず提示（再試行/再読み込み/URL確認）
+
+---
+
+## 9. テスト/品質（最低限）
+- 型安全を優先し、曖昧な型を放置しない
+- 重要なロジック（購読hook、整形、フィルタ）は unit test 対象
+- 主要導線（/cheer/:eventId の表示、メッセージ送信）は E2E を検討（余力があれば）
+
+---
+
+## 10. デプロイ方針（Firebase）
+- 静的ホスティング（SPA）を基本にする
+- ルーティングは Hosting の rewrites で SPA に対応する（/cheer/* を index へ）
+
+---
+
+## 11. Definition of Done（Web）
+- 共有URL（/cheer/<eventId>）で迷わず応援画面に到達できる
+- イベント参加メンバー全員の現在地が見える（更新が追従する）
+- ルート（履歴）が見える（最低限はポリラインで可）
+- 写真が見える（撮影地点と紐づく）
+- 応援メッセージが送れる（送信成功が分かる）
+- ネット不安定時でも状態が分かり、復帰できる
+
+---
+
+## 12. 参照（一次ソース）
+- Cursor Rules / AGENTS.md:
+  - https://cursor.com/docs/context/rules
+  - https://docs.cursor.com/ja/context/rules
+- Firebase Hosting（rewrites等の設定）:
+  - https://firebase.google.com/docs/hosting/full-config
+- Firestore realtime listen（onSnapshot）:
+  - https://firebase.google.com/docs/firestore/query-data/listen
+  - https://docs.cloud.google.com/firestore/native/docs/query-data/listen?hl=ja
+- Next.js（将来SSR/OGが必要になった場合）:
+  - https://nextjs.org/docs/app/api-reference/functions/generate-metadata
+  - https://nextjs.org/docs/app/getting-started/metadata-and-og-images

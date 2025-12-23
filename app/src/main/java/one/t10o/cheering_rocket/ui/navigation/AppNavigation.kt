@@ -207,6 +207,18 @@ fun AppNavigation() {
                     },
                     onNavigateToEventDetail = { eventId ->
                         navController.navigate(Screen.EventDetail.createRoute(eventId))
+                    },
+                    onNavigateToEventCreate = {
+                        navController.navigate(Screen.EventCreate.route)
+                    },
+                    onNavigateToEvents = {
+                        navController.navigate(Screen.Events.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }
