@@ -51,7 +51,7 @@ fun RunEndScreen(
     eventId: String,
     onNavigateBack: () -> Unit,
     onFinished: () -> Unit,
-    viewModel: RunViewModel = hiltViewModel()
+    viewModel: RunEndViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
