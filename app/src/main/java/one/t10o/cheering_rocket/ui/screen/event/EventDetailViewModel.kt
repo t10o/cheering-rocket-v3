@@ -32,7 +32,7 @@ data class EventDetailUiState(
     val successMessage: String? = null
 ) {
     val shareUrl: String
-        get() = event?.let { "https://cheering-rocket.web.app/cheer/${it.shareToken}" } ?: ""
+        get() = event?.let { "https://cheering-rocket-v3-web.vercel.app/cheer/${it.shareToken}" } ?: ""
 }
 
 /**
