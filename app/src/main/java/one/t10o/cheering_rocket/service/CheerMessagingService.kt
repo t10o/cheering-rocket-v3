@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -167,19 +168,55 @@ class CheerMessagingService : FirebaseMessagingService() {
      */
     private fun saveTokenToFirestore(token: String) {
         val currentUserId = firebaseAuth.currentUser?.uid ?: return
-        
+
         serviceScope.launch {
+            val now = Timestamp.now()
             try {
                 firestore.collection("users")
                     .document(currentUserId)
-                    .update("fcmToken", token)
+                    .update(
+                        mapOf(
+                            "fcmToken" to token,
+                            "updatedAt" to now
+                        )
+                    )
                     .await()
-                
+
+                syncActiveRunTokens(currentUserId, token, now)
                 Log.d(TAG, "FCM token saved to Firestore")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to save FCM token", e)
             }
         }
+    }
+
+    /**
+     * 走行中ランに最新FCMトークンを反映
+     */
+    private suspend fun syncActiveRunTokens(userId: String, token: String, now: Timestamp) {
+        val activeRuns = firestore.collection("runs")
+            .whereEqualTo("userId", userId)
+            .whereEqualTo("status", "RUNNING")
+            .get()
+            .await()
+
+        if (activeRuns.isEmpty) {
+            return
+        }
+
+        val batch = firestore.batch()
+        activeRuns.documents.forEach { doc ->
+            batch.update(
+                doc.reference,
+                mapOf(
+                    "runnerFcmToken" to token,
+                    "updatedAt" to now
+                )
+            )
+        }
+        batch.commit().await()
+
+        Log.d(TAG, "FCM token synced to ${activeRuns.documents.size} active runs")
     }
 }
 

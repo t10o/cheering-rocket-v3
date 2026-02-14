@@ -5,6 +5,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -37,6 +38,7 @@ class RunRepository @Inject constructor(
 ) {
     
     companion object {
+        private const val TAG = "RunRepository"
         private const val MAX_RETRY_COUNT = 5
         private const val EARTH_RADIUS_METERS = 6371000.0
     }
@@ -59,7 +61,9 @@ class RunRepository @Inject constructor(
             
             val userName = userDoc.getString("displayName") ?: "名前なし"
             val userPhotoUrl = userDoc.getString("photoUrl")
-            
+            val storedFcmToken = userDoc.getString("fcmToken")
+            val runnerFcmToken = storedFcmToken ?: fetchCurrentFcmToken()
+
             val now = Timestamp.now()
             
             val runDoc = hashMapOf(
@@ -67,6 +71,7 @@ class RunRepository @Inject constructor(
                 "userId" to currentUser.uid,
                 "userName" to userName,
                 "userPhotoUrl" to userPhotoUrl,
+                "runnerFcmToken" to runnerFcmToken,
                 "status" to RunStatus.RUNNING.name,
                 "startedAt" to now,
                 "finishedAt" to null,
@@ -92,6 +97,7 @@ class RunRepository @Inject constructor(
                 userId = currentUser.uid,
                 userName = userName,
                 userPhotoUrl = userPhotoUrl,
+                runnerFcmToken = runnerFcmToken,
                 status = RunStatus.RUNNING,
                 startedAt = now,
                 createdAt = now,
@@ -241,7 +247,7 @@ class RunRepository @Inject constructor(
             } catch (e: Exception) {
                 // Firestore保存失敗はローカルに残して後で再送
                 // エラーは握りつぶさず、ログに残す（本番ではCrashlyticsなど）
-                android.util.Log.w("RunRepository", "Failed to sync location to Firestore", e)
+                android.util.Log.w(TAG, "Failed to sync location to Firestore", e)
             }
             
             val runLocation = RunLocation(
@@ -525,6 +531,18 @@ class RunRepository @Inject constructor(
     }
     
     // ==================== ユーティリティ ====================
+
+    /**
+     * 現在端末のFCMトークンを取得
+     */
+    private suspend fun fetchCurrentFcmToken(): String? {
+        return try {
+            FirebaseMessaging.getInstance().token.await()
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Failed to fetch FCM token", e)
+            null
+        }
+    }
     
     /**
      * 2点間の距離を計算（Haversine公式）
@@ -565,6 +583,7 @@ class RunRepository @Inject constructor(
             userId = doc.getString("userId") ?: "",
             userName = doc.getString("userName") ?: "",
             userPhotoUrl = doc.getString("userPhotoUrl"),
+            runnerFcmToken = doc.getString("runnerFcmToken"),
             status = try {
                 RunStatus.valueOf(doc.getString("status") ?: RunStatus.RUNNING.name)
             } catch (e: Exception) {

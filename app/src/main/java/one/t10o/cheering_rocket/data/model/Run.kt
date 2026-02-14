@@ -12,6 +12,7 @@ data class RunSession(
     val userId: String = "",
     val userName: String = "",
     val userPhotoUrl: String? = null,
+    val runnerFcmToken: String? = null,
     val status: RunStatus = RunStatus.RUNNING,
     val startedAt: Timestamp? = null,
     val finishedAt: Timestamp? = null,
