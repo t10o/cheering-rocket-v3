@@ -41,6 +41,11 @@ class RunRepository @Inject constructor(
         private const val TAG = "RunRepository"
         private const val MAX_RETRY_COUNT = 5
         private const val EARTH_RADIUS_METERS = 6371000.0
+        private const val MAX_ACCEPTABLE_ACCURACY_METERS = 25f
+        private const val MAX_REASONABLE_SPEED_MPS = 8.5
+        private const val MAX_JUMP_DISTANCE_METERS = 120.0
+        private const val STATIONARY_NOISE_SPEED_MPS = 0.8
+        private const val STATIONARY_NOISE_DISTANCE_METERS = 12.0
     }
     
     // ==================== ランセッション管理 ====================
@@ -202,7 +207,17 @@ class RunRepository @Inject constructor(
             
             val now = Timestamp.now()
             val timestamp = location.time
-            
+            val locationTimestamp = Timestamp(
+                timestamp / 1000,
+                ((timestamp % 1000) * 1_000_000).toInt()
+            )
+
+            getLocationRejectionReason(location, previousLocation)?.let { reason ->
+                android.util.Log.d(TAG, "Filtered noisy location: $reason")
+                return previousLocation?.let { Result.success(it) }
+                    ?: Result.failure(LocationFilteredException(reason))
+            }
+
             // 前回地点からの距離を計算
             val distanceFromPrevious = previousLocation?.let {
                 calculateDistance(
@@ -258,7 +273,7 @@ class RunRepository @Inject constructor(
                 accuracy = if (location.hasAccuracy()) location.accuracy else null,
                 speedMps = if (location.hasSpeed()) location.speed.toDouble() else null,
                 bearing = if (location.hasBearing()) location.bearing else null,
-                timestamp = now,
+                timestamp = locationTimestamp,
                 distanceFromPrevious = distanceFromPrevious,
                 cumulativeDistance = cumulativeDistance,
                 isSynced = pendingLocationDao.getByRunId(runId).none { it.id == localId }
@@ -280,7 +295,8 @@ class RunRepository @Inject constructor(
         cumulativeDistance: Double
     ) {
         val now = Timestamp.now()
-        
+        val locationTimestamp = Timestamp(location.time / 1000, ((location.time % 1000) * 1_000_000).toInt())
+
         val locationDoc = hashMapOf(
             "latitude" to location.latitude,
             "longitude" to location.longitude,
@@ -288,7 +304,7 @@ class RunRepository @Inject constructor(
             "accuracy" to if (location.hasAccuracy()) location.accuracy else null,
             "speedMps" to if (location.hasSpeed()) location.speed.toDouble() else null,
             "bearing" to if (location.hasBearing()) location.bearing else null,
-            "timestamp" to Timestamp(location.time / 1000, ((location.time % 1000) * 1000000).toInt()),
+            "timestamp" to locationTimestamp,
             "distanceFromPrevious" to distanceFromPrevious,
             "cumulativeDistance" to cumulativeDistance
         )
@@ -304,7 +320,7 @@ class RunRepository @Inject constructor(
         val latestLocation = hashMapOf(
             "latitude" to location.latitude,
             "longitude" to location.longitude,
-            "timestamp" to now,
+            "timestamp" to locationTimestamp,
             "speedMps" to if (location.hasSpeed()) location.speed.toDouble() else null
         )
         
@@ -531,6 +547,72 @@ class RunRepository @Inject constructor(
     }
     
     // ==================== ユーティリティ ====================
+
+    /**
+     * ノイズと判断した位置情報の理由を返す
+     */
+    private fun getLocationRejectionReason(
+        location: Location,
+        previousLocation: RunLocation?
+    ): String? {
+        if (location.hasAccuracy() && location.accuracy > MAX_ACCEPTABLE_ACCURACY_METERS) {
+            return "low_accuracy: ${location.accuracy}m"
+        }
+
+        if (previousLocation == null) {
+            return null
+        }
+
+        val distanceMeters = calculateDistance(
+            previousLocation.latitude,
+            previousLocation.longitude,
+            location.latitude,
+            location.longitude
+        )
+
+        val elapsedSeconds = calculateElapsedSeconds(previousLocation.timestamp, location.time)
+        val estimatedSpeedMps = elapsedSeconds
+            ?.takeIf { it > 0.0 }
+            ?.let { distanceMeters / it }
+
+        val speedHintMps = if (location.hasSpeed()) {
+            location.speed.toDouble()
+        } else {
+            estimatedSpeedMps
+        }
+
+        if (
+            speedHintMps != null &&
+            speedHintMps <= STATIONARY_NOISE_SPEED_MPS &&
+            distanceMeters <= STATIONARY_NOISE_DISTANCE_METERS
+        ) {
+            return "stationary_jitter: distance=${distanceMeters}m speed=${speedHintMps}mps"
+        }
+
+        if (distanceMeters >= MAX_JUMP_DISTANCE_METERS) {
+            return "distance_jump: ${distanceMeters}m"
+        }
+
+        if (estimatedSpeedMps != null && estimatedSpeedMps > MAX_REASONABLE_SPEED_MPS) {
+            return "speed_jump: ${estimatedSpeedMps}mps"
+        }
+
+        return null
+    }
+
+    /**
+     * 2地点の経過秒数を計算
+     */
+    private fun calculateElapsedSeconds(
+        previousTimestamp: Timestamp?,
+        currentTimeMillis: Long
+    ): Double? {
+        val previous = previousTimestamp ?: return null
+        val previousMillis = previous.seconds * 1000L + previous.nanoseconds / 1_000_000L
+        val elapsedMillis = currentTimeMillis - previousMillis
+        if (elapsedMillis <= 0) return null
+        return elapsedMillis / 1000.0
+    }
 
     /**
      * 現在端末のFCMトークンを取得

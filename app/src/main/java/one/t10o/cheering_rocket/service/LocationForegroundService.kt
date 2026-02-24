@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 import one.t10o.cheering_rocket.MainActivity
 import one.t10o.cheering_rocket.R
 import one.t10o.cheering_rocket.data.model.RunLocation
+import one.t10o.cheering_rocket.data.repository.LocationFilteredException
 import one.t10o.cheering_rocket.data.repository.RunRepository
 import javax.inject.Inject
 
@@ -265,15 +266,25 @@ class LocationForegroundService : Service() {
                 previousLocation = previousLocation
             )
                 .onSuccess { runLocation ->
+                    val isNewPoint = previousLocation?.id != runLocation.id
                     previousLocation = runLocation
+
+                    if (!isNewPoint) {
+                        return@onSuccess
+                    }
+
                     _totalDistance.value = runLocation.cumulativeDistance
                     _locationCount.value = _locationCount.value + 1
-                    
+
                     // 通知を更新
                     updateNotification(runLocation.cumulativeDistance)
                 }
                 .onFailure { e ->
-                    Log.e(TAG, "Failed to save location", e)
+                    if (e is LocationFilteredException) {
+                        Log.d(TAG, "Filtered noisy location: ${e.message}")
+                    } else {
+                        Log.e(TAG, "Failed to save location", e)
+                    }
                 }
         }
     }
